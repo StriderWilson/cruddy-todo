@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const _ = require('underscore');
 const counter = require('./counter');
-
+var Promise = require('bluebird');
 var items = {};
 
 // Public API - Fix these CRUD functions ///////////////////////////////////////
@@ -25,35 +25,38 @@ exports.create = (text, callback) => {
 };
 
 exports.readAll = (callback) => {
-  // var items = fs.readdir(path.join(exports.dataDir), (err, files) => {
-  //   console.log(files);
-  //   if (err) {
-  //     console.log('err ', err);
-  //   } else {
-  //     var textData = _.map(files, (data, id) => {
-  //       var text = fs.readFile(path.join(exports.dataDir, data), (err, data) =>{
-  //         console.log('text', data.toString());
-  //         return { id: id, text: data.toString() };
-  //       });
-  //       callback(null, textData);
-  //     });
 
-  //   }
+
   fs.readdir(exports.dataDir, (err, files) => {
     if (err) {
       throw ('err');
     } else {
       var todoList = files.map((file) => {
-        let item = path.basename(file, '.txt');
-        // var text = fs.readFile(path.join(exports.dataDir, file), 'utf8', (err, data) =>{
-        //   console.log('text', data);
-        // });
-
-        return { id: item, text: item };
+        return new Promise(function (resolve, reject) {
+          let item = path.basename(file, '.txt');
+          fs.readFile(path.join(exports.dataDir, file), (err, data) =>{
+            if (err) {
+              reject(err);
+            } else {
+              resolve({ id: item, text: data.toString()});
+            }
+          });
+        });
       });
-      callback(null, todoList);
+      // console.log(todoList);
+
+      // callback(null, todoList);
+      Promise.all(todoList)
+        .then(function(results) {
+          todoList = results;
+          callback(null, todoList);
+          // console.log(todoList);
+          // return todoList;
+        })
+        .catch(error => console.log(`error in promises ${error}`));
     }
   });
+
 
 };
 
@@ -69,7 +72,7 @@ exports.readOne = (id, callback) => {
 };
 
 exports.update = (id, text, callback) => {
-  // if (fs.existsSync(exports.dataDir, id + '.txt')) {
+
   fs.access(path.join(exports.dataDir, id + '.txt'), fs.F_OK, (err) => {
     if (err) {
       console.log('Access Error', err);
